@@ -96,6 +96,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  // Currently, the project is just initialized to turn the LED ON whenever we PRESS the blue button on the board
+	  // ... the next step will be to figure out how to output a message to the LCD screen a message whenever the button is pressed
 	  button_state = HAL_GPIO_ReadPin(GPIOC, Blue_Button_Pin);			// obtain button status (i.e. if it is pressed)
 
 	  if (button_state == GPIO_PIN_RESET){								// blue button is pressed
