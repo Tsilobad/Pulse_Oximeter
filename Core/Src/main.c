@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "lcd.h"
+#include "stdio.h"
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,6 +49,8 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 UART_HandleTypeDef huart2;
 GPIO_PinState button_state;
+uint8_t dataBuffer[16]; // Buffer to store received I2C data
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -54,13 +58,26 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
-/* USER CODE BEGIN PFP */
 
+  /* USER CODE BEGIN PFP */
+int _write(int file, char *ptr, int len)
+{
+  /* Implement your write code here, this is used by puts and printf for example */
+  int i=0;
+  for(i=0 ; i<len ; i++)
+    ITM_SendChar((*ptr++));
+  return len;
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)				// this is the function that executes when EXT interrupt comes in
+{
+	// ToDO: implement this to do what it is required to do
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -76,7 +93,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -104,12 +121,15 @@ int main(void)
   lcd = Lcd_create(ports, pins, GPIOB, GPIO_PIN_5, GPIOB, GPIO_PIN_4, LCD_4_BIT_MODE);
   Lcd_cursor(&lcd, 0,1);
   Lcd_string(&lcd, "'LCD Test'");
-  for ( int x = 1; x <= 200 ; x++ )
-  {
-	Lcd_cursor(&lcd, 1,7);
-	Lcd_int(&lcd, x);
-	HAL_Delay (100);
-  }
+
+//  for ( int x = 1; x <= 200 ; x++ )
+//  {
+//	Lcd_cursor(&lcd, 1,7);
+//	Lcd_int(&lcd, x);
+//	HAL_Delay (100);
+//  }
+
+  printf("Hello World!\n");
 
   /* USER CODE END 2 */
 
@@ -120,13 +140,81 @@ int main(void)
 
 	  // Currently, the project is just initialized to turn the LED ON whenever we PRESS the blue button on the board
 	  // ... the next step will be to figure out how to output a message to the LCD screen a message whenever the button is pressed
-	  button_state = HAL_GPIO_ReadPin(GPIOC, Blue_Button_Pin);			// obtain button status (i.e. if it is pressed)
+//	  button_state = HAL_GPIO_ReadPin(GPIOC, Blue_Button_Pin);			// obtain button status (i.e. if it is pressed)
+//
+//	  if (button_state == GPIO_PIN_RESET){								// blue button is pressed
+//		  HAL_GPIO_WritePin(GPIOA, Green_LED_Pin, GPIO_PIN_SET);		// turn the LED on
+//	  } else {															// blue button is not pressed
+//		  HAL_GPIO_WritePin(GPIOA, Green_LED_Pin, GPIO_PIN_RESET);		// turn the LED off
+//	  }
 
-	  if (button_state == GPIO_PIN_RESET){								// blue button is pressed
-		  HAL_GPIO_WritePin(GPIOA, Green_LED_Pin, GPIO_PIN_SET);		// turn the LED on
-	  } else {															// blue button is not pressed
-		  HAL_GPIO_WritePin(GPIOA, Green_LED_Pin, GPIO_PIN_RESET);		// turn the LED off
+
+
+	  // STM32 is a slave, so it will wait for data from the master
+	  printf("waiting for I2C\n");
+	  HAL_I2C_Slave_Receive(&hi2c1, (uint8_t*)dataBuffer, sizeof(dataBuffer), HAL_MAX_DELAY);
+
+	  printf("received I2C\n");
+
+	  // Process the received data as needed
+	  char stringBuffer[16];
+//	  sprintf(stringBuffer, "%s", dataBuffer);
+//	  printf("string = %s\n", stringBuffer);
+//
+//	  Lcd_clear(&lcd);
+//	  Lcd_cursor(&lcd, 0,0);
+//	  Lcd_string(&lcd, stringBuffer);
+
+	  // Process the received data as needed
+	  strncpy(stringBuffer, (char*)dataBuffer, 16);
+	  printf("String Buffer = %s\n", stringBuffer);
+
+	  // Split the string into two substrings
+	  char* spo2Substring = strtok(stringBuffer, ",");
+	  char* heartRateSubstring = strtok(NULL, ",");
+
+	  if (spo2Substring != NULL && heartRateSubstring != NULL)
+	  {
+		  // Convert substrings to integers
+		  unsigned int spo2Value = atoi(spo2Substring);
+		  unsigned int heartRateValue = atoi(heartRateSubstring);
+
+		  char spo2String[16];
+		  if (spo2Value < 92){
+			  sprintf(spo2String, "Spo2: %d !!!", spo2Value);
+		  } else {
+			  sprintf(spo2String, "Spo2: %d", spo2Value);
+		  }
+
+		  char heartRateString[16];
+		  if (heartRateValue > 160){
+			  sprintf(heartRateString, "HR: %d HIGH", heartRateValue);
+		  } else if(heartRateValue < 50) {
+			  sprintf(heartRateString, "HR: %d LOW", heartRateValue);
+		  } else {
+			  sprintf(heartRateString, "HR: %d", heartRateValue);
+		  }
+
+
+		  // Print values to console
+		  printf("%s\n", spo2String);
+		  printf("%s\n", heartRateString);
+
+		  // Update LCD or perform other actions with the extracted values
+		  Lcd_clear(&lcd);
+		  Lcd_cursor(&lcd, 0, 0);
+		  Lcd_string(&lcd, spo2String);
+		  Lcd_cursor(&lcd, 1, 0);
+		  Lcd_string(&lcd, heartRateString);
 	  }
+	  else
+	  {
+		  printf("Invalid data format\n");
+	  }
+
+	  // Clear the data buffer for the next transmission
+	  memset(dataBuffer, 0, sizeof(dataBuffer));
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -197,10 +285,10 @@ static void MX_I2C1_Init(void)
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.OwnAddress1 = 8;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2 = 8;
   hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
   hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
   if (HAL_I2C_Init(&hi2c1) != HAL_OK)
