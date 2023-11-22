@@ -120,7 +120,7 @@ int main(void)
   // Lcd_create(ports, pins, RS_GPIO_Port, RS_Pin, EN_GPIO_Port, EN_Pin, LCD_4_BIT_MODE);
   lcd = Lcd_create(ports, pins, GPIOB, GPIO_PIN_5, GPIOB, GPIO_PIN_4, LCD_4_BIT_MODE);
   Lcd_cursor(&lcd, 0,1);
-  Lcd_string(&lcd, "'LCD Test'");
+  Lcd_string(&lcd, "'boss'");
 
 //  for ( int x = 1; x <= 200 ; x++ )
 //  {
@@ -149,6 +149,7 @@ int main(void)
 //	  }
 
 
+	  //demo begin
 
 	  // STM32 is a slave, so it will wait for data from the master
 	  printf("waiting for I2C\n");
@@ -214,7 +215,7 @@ int main(void)
 
 	  // Clear the data buffer for the next transmission
 	  memset(dataBuffer, 0, sizeof(dataBuffer));
-
+	  // end here
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
